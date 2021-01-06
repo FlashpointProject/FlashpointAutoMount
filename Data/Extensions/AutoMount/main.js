@@ -8,9 +8,7 @@ module.exports.activate = () => {
 
     let alreadyLaunched = new Set();
 
-    flashpoint.games.onWillLaunchGame(async (gameLaunchInfo) => {
-        let id = gameLaunchInfo.game.id;
-
+    async function mountGame(id) {
         if(alreadyLaunched.has(id)) {
             return;
         }
@@ -37,5 +35,13 @@ module.exports.activate = () => {
                 }
             })
         });
+    }
+
+    flashpoint.games.onWillLaunchGame(async (gameLaunchInfo) => {
+        await mountGame(gameLaunchInfo.game.id);
+    });
+
+    flashpoint.games.onWillLaunchAddApp(async (addAppInfo) => {
+        await mountGame(addAppInfo.parentGame.id);
     });
 };
