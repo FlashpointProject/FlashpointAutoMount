@@ -3,8 +3,11 @@ module.exports.activate = () => {
     const fs = require("fs");
     const util = require("util");
     const child_process = require("child_process");
+    const path = require("path");
 
     const fsAccess = util.promisify(fs.access);
+
+    const fpPath = flashpoint.config.flashpointPath;
 
     let alreadyLaunched = new Set();
 
@@ -15,13 +18,13 @@ module.exports.activate = () => {
         alreadyLaunched.add(id);
 
         try {
-            await fsAccess(`..\\Games\\${id}.zip`);
+            await fsAccess(path.join(fpPath, "Games", `${id}.zip`));
         } catch(e) {
             flashpoint.log.info("No GameZIP detected.");
             return;
         }
 
-        let fpmount = child_process.spawn("..\\FPSoftware\\fpmount\\fpmount", [id]);
+        let fpmount = child_process.spawn(path.join(fpPath, "FPSoftware", "fpmount", "fpmount"), [id]);
         fpmount.stdout.on("data", data => flashpoint.log.info(`FPMount output: ${data}`));
         fpmount.stderr.on("data", data => flashpoint.log.info(`FPMount error: ${data}`));
         await new Promise((resolve, reject) => {
@@ -42,6 +45,10 @@ module.exports.activate = () => {
     });
 
     flashpoint.games.onWillLaunchAddApp(async (addAppInfo) => {
-        await mountGame(addAppInfo.parentGame.id);
+        if(addAppInfo.parentGame) {
+            await mountGame(addAppInfo.parentGame.id);
+        } else {
+            flashpoint.log.error("Unable to determine parent game!");
+        }
     });
 };
