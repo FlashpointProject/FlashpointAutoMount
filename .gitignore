@@ -1,0 +1,10 @@
+/dist
+/node_modules
+/ruffle-standalone
+/static/ruffle
+/package
+/*.zip
+/.idea
+extension.fplx
+config.json
+package-lock.json
