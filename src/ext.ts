@@ -47,7 +47,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
     alreadyLaunched.add(id);
     if (dockerGZ) {
       flashpoint.log.info("FPMount output: urlopen");
-      http.request({host: '127.0.0.1', port: '22500', path: `mount.php?file=${encodeURIComponent(path.basename(filePath))}`}, function(response) {
+      http.request({host: '127.0.0.1', port: '22500', path: `/mount.php?file=${encodeURIComponent(path.basename(filePath))}`}, function(response) {
         var str: string = '';
         response.on('data', function (chunk: string) {
           str += chunk;
