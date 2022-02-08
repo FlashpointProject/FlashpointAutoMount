@@ -9,7 +9,6 @@
     "./dist"
   ],
   "include": [
-    "./typings",
     "./src"
   ]
 }

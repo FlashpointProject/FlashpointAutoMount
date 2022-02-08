@@ -8,6 +8,7 @@
   "main": "./dist/ext.js",
   "dependencies": {
     "@types/node": "^14.18.9",
+    "@types/flashpoint-launcher": "^10",
     "ascii85": "^1.0.2",
     "qemu-qmp": "^0.5.0"
   },
