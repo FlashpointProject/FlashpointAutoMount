@@ -1,20 +1,19 @@
 import QMP from 'qemu-qmp';
 import Ascii85 from 'ascii85';
-import * as path from 'path';
-import * as crypto from 'crypto';
-import * as http from 'http';
-import * as child_process from 'child_process';
+import { join, basename } from 'path';
+import { randomBytes } from 'crypto';
+import { request } from 'http';
 import * as flashpoint from 'flashpoint-launcher';
-import * as fs from 'fs';
+import { readFile } from 'fs';
 
 export async function activate(context: flashpoint.ExtensionContext) {
   const fpPath: string = flashpoint.config.flashpointPath;
-  const dataPacksPath: string = path.join(fpPath, flashpoint.getPreferences().dataPacksFolderPath);
+  const dataPacksPath: string = join(fpPath, flashpoint.getPreferences().dataPacksFolderPath);
 
   let alreadyLaunched: Set<string> = new Set();
 
   var dockerGZ: boolean = true;
-  fs.readFile(path.join(fpPath, "Data", "services.json"), function (err: Error, data: Buffer) {
+  readFile(join(fpPath, "Data", "services.json"), function (err: Error, data: Buffer) {
     if (err) throw err;
     if(data.includes('qemu-system')){
       dockerGZ = false;
@@ -47,7 +46,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
     alreadyLaunched.add(id);
     if (dockerGZ) {
       flashpoint.log.info("FPMount output: urlopen");
-      http.request({host: '127.0.0.1', port: '22500', path: `/mount.php?file=${encodeURIComponent(path.basename(filePath))}`}, function(response) {
+      request({host: '127.0.0.1', port: '22500', path: `/mount.php?file=${encodeURIComponent(basename(filePath))}`}, function(response) {
         var str: string = '';
         response.on('data', function (chunk: string) {
           str += chunk;
@@ -59,7 +58,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
     } else {
       flashpoint.log.info(`FPMount output: Mounting ${id}`);
       // Generate a random 16-character string.
-      let drive: string = crypto.randomBytes(16).map(function(element) { return (element % 26) + 97; }).toString();
+      let drive: string = randomBytes(16).map(function(element) { return (element % 26) + 97; }).toString();
       // Convert the uuid to bytes, then encode it with base85.
       let data: Uint8Array = uuidToBytes(id);
       let serial: string = Ascii85.encode(data).toString('ascii');
@@ -72,7 +71,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
           qmp.execute('device_add', {'driver': 'virtio-blk-pci', 'drive': drive, 'id': drive, 'serial': serial}, function(err: Error) {
             if (err) throw err;
             flashpoint.log.info("FPMount output: urlopen");
-            http.request({host: '127.0.0.1', port: '22500', path: `/mount.php?file=${encodeURIComponent(serial)}`}, function(response) {
+            request({host: '127.0.0.1', port: '22500', path: `/mount.php?file=${encodeURIComponent(serial)}`}, function(response) {
               var str: string = '';
               response.on('data', function (chunk: string) {
                 str += chunk;
@@ -94,7 +93,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
       if (gameLaunchInfo.activeData.presentOnDisk) {
         // Data present, mount it now
         flashpoint.log.debug("GameData present on disk, mounting...");
-        const filePath: string = path.join(dataPacksPath, gameLaunchInfo.activeData.path)
+        const filePath: string = join(dataPacksPath, gameLaunchInfo.activeData.path)
         return mountGame(gameLaunchInfo.game.id, filePath);
       } else {
         throw "GameData found but not downloaded, cannot mount.";
@@ -111,7 +110,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
         if (activeData && activeData.presentOnDisk) {
           // Data present, mount it now
           flashpoint.log.debug("GameData present on disk, mounting...");
-          const filePath: string = path.join(dataPacksPath, activeData.path)
+          const filePath: string = join(dataPacksPath, activeData.path)
           return mountGame(addAppInfo.parentGame.id, filePath);
         } else {
           throw "GameData found but not downloaded, cannot mount.";
