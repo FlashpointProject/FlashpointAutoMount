@@ -132,7 +132,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
       // The main task will connect, execute two commands, and send a request to mount.php.
       // Note: this is just a promise to complete the main task. We will ensure that it delivers later.
       let mainTask = qmpConnect(qmp, 4444, '127.0.0.1')
-      .then((qmp) => qmpExecute(qmp, 'blockdev-add', {'node-name': drive, 'driver': 'raw', 'file': { 'driver': 'file', 'filename': filePath}}))
+      .then((qmp) => qmpExecute(qmp, 'blockdev-add', {'node-name': drive, 'driver': 'raw', 'read-only': true, 'file': { 'driver': 'file', 'filename': filePath}}))
       .then((qmp) => qmpExecute(qmp, 'device_add', {'driver': 'virtio-blk-pci', 'drive': drive, 'id': drive, 'serial': serial}))
       .then((qmp) => callPHP({host: '127.0.0.1', port: '22500', path: `/mount.php?file=${encodeURIComponent(serial)}`}, qmp))
       .then((dict) => {
