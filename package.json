@@ -2,7 +2,7 @@
   "name": "automount",
   "displayName": "GameZIP Auto Mounter",
   "author": "Sgeo",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "launcherVersion": "9.0.0",
   "description": "Automatically mount games when a GameZIP exists",
   "main": "./dist/ext.js",
