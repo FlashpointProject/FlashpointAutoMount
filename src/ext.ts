@@ -2,9 +2,10 @@ import QMP from 'qemu-qmp';
 import Ascii85 from 'ascii85';
 import { join, basename } from 'path';
 import { randomBytes } from 'crypto';
-import { request } from 'http';
 import * as flashpoint from 'flashpoint-launcher';
 import { readFile } from 'fs';
+import { uuidToBytes, qmpConnect, qmpExecute, callPHP, nudgeQMP } from './util';
+import { parseMountParams, runParams } from './mountparams';
 
 export async function activate(context: flashpoint.ExtensionContext) {
   const fpPath: string = flashpoint.config.flashpointPath;
@@ -19,85 +20,6 @@ export async function activate(context: flashpoint.ExtensionContext) {
       dockerGZ = false;
     }
   });
-
-  // uuid.parse() was rejecting some uuids - this is a replacement.
-  function uuidToBytes(id: string) {
-    // Regex pattern removes all dashes.
-    let strid: string = id.replace(/-/g,'');
-    // "Allocate" an array to hold the output.
-    let arr: Uint8Array = new Uint8Array(strid.length/2);
-    // Convert each two-character pair to an int from hex.
-    for (var i: number = 0; i < strid.length - 1; i += 2) {
-      arr[i/2] = parseInt(strid.slice(i, i+2), 16);
-    }
-    return arr;
-  }
-
-  // Connects qmp to the given port number and host.
-  const qmpConnect = (qmp, port: number, host: string) => {
-    // Wrap the callback in a promise.
-    return new Promise((resolve, reject) => {
-      // Connect to the port and host.
-      qmp.connect(port, host, (err: Error) => {
-        // If we get an error, reject the promise.
-        if (err) return reject(err);
-        // If we don't get an error, return qmp.
-        resolve(qmp);
-      });
-    });
-  }
-
-  // Executes a command on a given qmp connection.
-  const qmpExecute = (qmp, funcname: string, argsdict) => {
-    // Wrap the callback in a promise.
-    return new Promise((resolve, reject) => {
-      // Execute funcname with argsdict as its argument.
-      qmp.execute(funcname, argsdict, (err: Error) => {
-        // If we get an error, reject the promise.
-        if (err) return reject(err);
-        // If we don't get an error, return qmp.
-        resolve(qmp);
-      });
-    });
-  }
-
-  // A promise to send an http request. It doesn't have to be to
-  // mount.php, but that's all it's used for, so the name is fine.
-  // qmp will be a nonsense argument if we're on docker,
-  // so we type it as any.
-  const callPHP = (argsdict, qmp: any) => {
-    // Wrap the request's callback in a promise.
-    return new Promise((resolve, reject) => {
-      // Make a request, as specified by argsdict.
-      request(argsdict, (response) => {
-        // Inititalize the response string to empty.
-        var str: string = '';
-        // Whenever we get a chunk of data, add it to the response string.
-        response.on('data', (chunk: string) => {
-          str += chunk;
-        });
-        // When the connection ends, resolve the promise.
-        response.on('end', () => {
-          // Return a dictionary with str -> (response string), and qmp -> qmp.
-          // Be aware: if we're on docker, qmp will be nonsense, like one.
-          resolve({"str":str, "qmp": qmp});
-        });
-      }).end();
-    });
-  }
-
-  // A function to nudge QMP back into responsiveness.
-  async function nudgeQMP() {
-    // We create an object for the new connection.
-    let nudgeConn: QMP = new QMP();
-    // Connect to 4445 (a separate connection), and send a simple command.
-    await qmpConnect(nudgeConn, 4445, '127.0.0.1')
-    .then((nudgeConn: QMP) => qmpExecute(nudgeConn, 'query-block-jobs', {}))
-    .then((nudgeConn: QMP) => {
-      // End the connection.
-      nudgeConn.end();
-    });
-  }
 
   // Mount a game, if applicable.
   async function mountGame(id: string, filePath: string) {
@@ -187,11 +109,12 @@ export async function activate(context: flashpoint.ExtensionContext) {
         flashpoint.log.debug("GameData present on disk, mounting...");
         const filePath: string = join(dataPacksPath, gameLaunchInfo.activeData.path)
         flashpoint.log.debug(`Mount parameters: \"${gameLaunchInfo.activeData.parameters}\"`);
-        if (gameLaunchInfo.activeData.parameters === "-extract") {
-          flashpoint.log.debug("AutoMount skipping, '-extract' registered.");
-        } else {
-          return mountGame(gameLaunchInfo.game.id, filePath);
+        let params: string[] = parseMountParams(gameLaunchInfo.activeData.parameters);
+        if (!(await runParams(params, true, alreadyLaunched, dockerGZ))) {
+          return false;
         }
+        await mountGame(gameLaunchInfo.game.id, filePath);
+        return runParams(params, false, alreadyLaunched, dockerGZ);
       } else {
         throw "GameData found but not downloaded, cannot mount.";
       }
@@ -209,11 +132,12 @@ export async function activate(context: flashpoint.ExtensionContext) {
           flashpoint.log.debug("GameData present on disk, mounting...");
           const filePath: string = join(dataPacksPath, activeData.path)
           flashpoint.log.debug(`Mount parameters: \"${activeData.parameters}\"`);
-          if (activeData.parameters === "-extract") {
-            flashpoint.log.debug("AutoMount skipping, '-extract' registered.");
-          } else {
-            return mountGame(addAppInfo.parentGame.id, filePath);
+          let params: string[] = parseMountParams(activeData.parameters);
+          if (!(await runParams(params, true, alreadyLaunched, dockerGZ))) {
+            return false;
           }
+          await mountGame(addAppInfo.parentGame.id, filePath);
+          return runParams(params, false, alreadyLaunched, dockerGZ);
         } else {
           throw "GameData found but not downloaded, cannot mount.";
         }
