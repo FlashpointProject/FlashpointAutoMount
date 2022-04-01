@@ -1,6 +1,7 @@
 import QMP from 'qemu-qmp';
 import Ascii85 from 'ascii85';
-import { join, basename } from 'path';
+// Change the name of resolve() to toAbs so that it doesn't conflict with the (resolve, reject) of Promises.
+import { join, basename, resolve as toAbs } from 'path';
 import { randomBytes } from 'crypto';
 import { request } from 'http';
 import * as flashpoint from 'flashpoint-launcher';
@@ -185,7 +186,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
       if (gameLaunchInfo.activeData.presentOnDisk) {
         // Data present, mount it now
         flashpoint.log.debug("GameData present on disk, mounting...");
-        const filePath: string = join(dataPacksPath, gameLaunchInfo.activeData.path)
+        const filePath: string = toAbs(join(dataPacksPath, gameLaunchInfo.activeData.path));
         flashpoint.log.debug(`Mount parameters: \"${gameLaunchInfo.activeData.parameters}\"`);
         if (gameLaunchInfo.activeData.parameters === "-extract") {
           flashpoint.log.debug("AutoMount skipping, '-extract' registered.");
