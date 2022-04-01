@@ -182,6 +182,23 @@ export async function activate(context: flashpoint.ExtensionContext) {
   }
 
   flashpoint.games.onWillLaunchGame(async (gameLaunchInfo) => {
+    if (gameLaunchInfo.game.parentGameId) {
+      let parentGameDataList: GameData[] = await findGameData(gameLaunchInfo.game.parentGameId);
+      for (parentGameData of parentGameDataList) {
+        if (parentGameData.presentOnDisk) {
+          let filePath: string = toAbs(join(dataPacksPath, parentGameData.path));
+          if (parentGameData.parameters === "-extract") {
+            flashpoint.log.debug("AutoMount skipping, '-extract' registered.");
+          } else {
+            await mountGame(gameLaunchInfo.game.parentGameId, filePath);
+          }
+        } else {
+          throw "GameData found but not downloaded, cannot mount.";
+        }
+      }
+    } else {
+      flashpoint.log.debug("No parent found, assuming non-child game.");
+    }
     if (gameLaunchInfo.activeData) {
       if (gameLaunchInfo.activeData.presentOnDisk) {
         // Data present, mount it now
@@ -198,31 +215,6 @@ export async function activate(context: flashpoint.ExtensionContext) {
       }
     } else {
       flashpoint.log.debug("AutoMount skipping, no GameData registered for Game. Assuming Legacy game.");
-    }
-  });
-
-  flashpoint.games.onWillLaunchAddApp(async (addAppInfo) => {
-    if(addAppInfo.parentGame) {
-      if (addAppInfo.parentGame.activeDataId) {
-        const activeData = await flashpoint.gameData.findOne(addAppInfo.parentGame.activeDataId)
-        if (activeData && activeData.presentOnDisk) {
-          // Data present, mount it now
-          flashpoint.log.debug("GameData present on disk, mounting...");
-          const filePath: string = join(dataPacksPath, activeData.path)
-          flashpoint.log.debug(`Mount parameters: \"${activeData.parameters}\"`);
-          if (activeData.parameters === "-extract") {
-            flashpoint.log.debug("AutoMount skipping, '-extract' registered.");
-          } else {
-            return mountGame(addAppInfo.parentGame.id, filePath);
-          }
-        } else {
-          throw "GameData found but not downloaded, cannot mount.";
-        }
-      } else {
-        flashpoint.log.debug("AutoMount skipping, no GameData registered for AddApps's Game. Assuming Legacy game.");
-      }
-    } else {
-      flashpoint.log.error("Unable to determine parent game!");
     }
   });
 };
