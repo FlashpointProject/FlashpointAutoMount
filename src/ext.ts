@@ -183,8 +183,8 @@ export async function activate(context: flashpoint.ExtensionContext) {
 
   flashpoint.games.onWillLaunchGame(async (gameLaunchInfo) => {
     if (gameLaunchInfo.game.parentGameId) {
-      let parentGameDataList: GameData[] = await findGameData(gameLaunchInfo.game.parentGameId);
-      for (parentGameData of parentGameDataList) {
+      let parentGameDataList: flashpoint.GameData[] = await flashpoint.gameData.findGameData(gameLaunchInfo.game.parentGameId);
+      for (let parentGameData of parentGameDataList) {
         if (parentGameData.presentOnDisk) {
           let filePath: string = toAbs(join(dataPacksPath, parentGameData.path));
           if (parentGameData.parameters === "-extract") {
