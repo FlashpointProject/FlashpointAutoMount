@@ -3,9 +3,10 @@ import Ascii85 from 'ascii85';
 // Change the name of resolve() to toAbs so that it doesn't conflict with the (resolve, reject) of Promises.
 import { join, basename, resolve as toAbs } from 'path';
 import { randomBytes } from 'crypto';
-import { request } from 'http';
+import { request, RequestOptions } from 'http';
 import * as flashpoint from 'flashpoint-launcher';
 import { readFile } from 'fs';
+
 
 export async function activate(context: flashpoint.ExtensionContext) {
   const fpPath: string = flashpoint.config.flashpointPath;
@@ -35,7 +36,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
   }
 
   // Connects qmp to the given port number and host.
-  const qmpConnect = (qmp, port: number, host: string) => {
+  const qmpConnect = (qmp: QMP, port: number, host: string): Promise<QMP> => {
     // Wrap the callback in a promise.
     return new Promise((resolve, reject) => {
       // Connect to the port and host.
@@ -66,7 +67,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
   // mount.php, but that's all it's used for, so the name is fine.
   // qmp will be a nonsense argument if we're on docker,
   // so we type it as any.
-  const callPHP = (argsdict, qmp: any) => {
+  const callPHP = (argsdict: RequestOptions): Promise<string> => {
     // Wrap the request's callback in a promise.
     return new Promise((resolve, reject) => {
       // Make a request, as specified by argsdict.
@@ -81,7 +82,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
         response.on('end', () => {
           // Return a dictionary with str -> (response string), and qmp -> qmp.
           // Be aware: if we're on docker, qmp will be nonsense, like one.
-          resolve({"str":str, "qmp": qmp});
+          resolve(str);
         });
       }).end();
     });
@@ -111,7 +112,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
     // If we're on docker, follow docker steps.
     if (dockerGZ) {
       // Docker only needs to send a request to mount.php. The second argument (1) is complete nonsense. We just need two arguments.
-      await callPHP({host: '127.0.0.1', port: '22500', path: `/mount.php?file=${encodeURIComponent(basename(filePath))}`}, 1)
+      await callPHP({host: '127.0.0.1', port: '22500', path: `/mount.php?file=${encodeURIComponent(basename(filePath))}`})
       .then((dict) => {
         // We did it! Log whatever mount.php returned.
         flashpoint.log.info(`mount.php returns: ${dict['str']}`);
@@ -120,6 +121,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
       // A variable to track whether the main task has completed.
       // At this point, the main task has not completed.
       let completed: boolean = false;
+      let QMPDone = false;
       // Send a log message: we're about to begin mounting.
       flashpoint.log.info(`Mounting ${id}`);
       // Generate a random 16-character string.
@@ -135,27 +137,27 @@ export async function activate(context: flashpoint.ExtensionContext) {
       let mainTask = qmpConnect(qmp, 4444, '127.0.0.1')
       .then((qmp) => qmpExecute(qmp, 'blockdev-add', {'node-name': drive, 'driver': 'raw', 'read-only': true, 'file': { 'driver': 'file', 'filename': filePath}}))
       .then((qmp) => qmpExecute(qmp, 'device_add', {'driver': 'virtio-blk-pci', 'drive': drive, 'id': drive, 'serial': serial}))
-      .then((qmp) => callPHP({host: '127.0.0.1', port: '22500', path: `/mount.php?file=${encodeURIComponent(serial)}`}, qmp))
-      .then((dict) => {
+      .then((qmp: QMP) => {
+        qmp.end();
+        QMPDone = true;
+        return callPHP({host: '127.0.0.1', port: '22500', path: `/mount.php?file=${encodeURIComponent(serial)}`})
+      })
+      .then((phpRes) => {
         // When we're done with all that, log whatever mount.php returned.
-        flashpoint.log.info(`mount.php returns: ${dict['str']}`);
-        // Close the qmp connection. We gave callPHP a real qmp argument, so we'll be
-        // getting back the real qmp from this.
-        dict['qmp'].end();
+        flashpoint.log.info(`mount.php returns: ${phpRes}`);
         // Set the flag: we've completed the main task.
         completed = true;
       }).catch((err) => {throw err;});
 
       // We also have a secondary task: the timer task.
       let timerPromise = new Promise((resolve, reject) => {
-        // This is an anonymous asynchronous recursive function. Say that five times fast.
         // Arguments: the amount of time to wait before recursing, how deep into the recursion we are, how
         // deep we're allowed to go before we should begin to nudge, and the callback to call when we're done.
         (async function timer(waitTime, depth, maxDepth, callback) {
           // Is the main task still incomplete?
           if (!completed) {
             // Yes. Should we send a nudge?
-            if (depth > maxDepth) {
+            if (!QMPDone && depth > maxDepth) {
               // Yes, send one. Wait for that to complete.
               await nudgeQMP();
             }
@@ -169,11 +171,11 @@ export async function activate(context: flashpoint.ExtensionContext) {
             callback(1)
           }
         // We call this lovely function with the arguments:
-        //   waitTime = 200ms     It seemed about right.
+        //   waitTime = 50ms      I wanted it to be lower.
         //   depth = 0            We're starting off with zero recursions.
-        //   maxDepth = 10        If it takes longer than two seconds, begin nudging.
+        //   maxDepth = 10        If it takes longer than 0.5 seconds, begin nudging.
         //   callback = resolve   When the main task is over, then we resolve the promise.
-        })(200, 0, 10, resolve);
+        })(50, 0, 10, resolve);
       });
       // Evaluate the two promises simultaneously.
       // timerPromise waits on mainTask's completion before resolving, so mainTask will always be first.
