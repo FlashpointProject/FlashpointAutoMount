@@ -92,8 +92,8 @@ export async function activate(context: flashpoint.ExtensionContext) {
   async function nudgeQMP() {
     // We create an object for the new connection.
     let nudgeConn: QMP = new QMP();
-    // Connect to 4445 (a separate connection), and send a simple command.
-    await qmpConnect(nudgeConn, 4445, '127.0.0.1')
+    // Connect to 22502 (a separate connection), and send a simple command.
+    await qmpConnect(nudgeConn, 22502, '127.0.0.1')
     .then((nudgeConn: QMP) => qmpExecute(nudgeConn, 'query-block-jobs', {}))
     .then((nudgeConn: QMP) => {
       // End the connection.
@@ -134,7 +134,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
 
       // The main task will connect, execute two commands, and send a request to mount.php.
       // Note: this is just a promise to complete the main task. We will ensure that it delivers later.
-      let mainTask = qmpConnect(qmp, 4444, '127.0.0.1')
+      let mainTask = qmpConnect(qmp, 22501, '127.0.0.1')
       .then((qmp) => qmpExecute(qmp, 'blockdev-add', {'node-name': drive, 'driver': 'raw', 'read-only': true, 'file': { 'driver': 'file', 'filename': filePath}}))
       .then((qmp) => qmpExecute(qmp, 'device_add', {'driver': 'virtio-blk-pci', 'drive': drive, 'id': drive, 'serial': serial}))
       .then((qmp: QMP) => {
