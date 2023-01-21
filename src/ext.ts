@@ -190,7 +190,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
         flashpoint.log.debug("GameData present on disk, mounting...");
         const filePath: string = toAbs(join(dataPacksPath, gameLaunchInfo.activeData.path));
         flashpoint.log.debug(`Mount parameters: \"${gameLaunchInfo.activeData.parameters}\"`);
-        if (gameLaunchInfo.activeData.parameters === "-extract") {
+        if (gameLaunchInfo.activeData.parameters?.startsWith("-extract")) {
           flashpoint.log.debug("AutoMount skipping, '-extract' registered.");
         } else {
           return mountGame(gameLaunchInfo.game.id, filePath);
@@ -212,7 +212,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
           flashpoint.log.debug("GameData present on disk, mounting...");
           const filePath: string = join(dataPacksPath, activeData.path)
           flashpoint.log.debug(`Mount parameters: \"${activeData.parameters}\"`);
-          if (activeData.parameters === "-extract") {
+          if (activeData.parameters?.startsWith("-extract")) {
             flashpoint.log.debug("AutoMount skipping, '-extract' registered.");
           } else {
             return mountGame(addAppInfo.parentGame.id, filePath);
