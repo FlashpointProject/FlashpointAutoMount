@@ -23,8 +23,8 @@ jobs:
         run: |
           sudo apt install libarchive-zip-perl -y
           jq --null-input \
-            --arg name     "AutoMount" \
-            --arg desc     "Extension required to mount gamezips to the gamezip server" \
+            --arg name     "GameZIP Mounter" \
+            --arg desc     "An extension that mounts files from entries using the modern format." \
             --arg date     $(date +%s) \
             --arg download $(du -b extension.fplx | awk '{print $1}') \
             --arg install  $(7z l extension.fplx | tail -n 1 | awk '{print $3}') \
