@@ -48,7 +48,7 @@ jobs:
           format: raw
           repository: components
           coordinates: directory=/
-          assets: filename=extension-automount.zip
+          assets: filename=core-server-automount.zip
           filename: extension.fplx
       - name: Deploy Metadata to Nexus
         uses: sonatype-nexus-community/nexus-repo-github-action@master
@@ -59,13 +59,24 @@ jobs:
           format: raw
           repository: components
           coordinates: directory=/
-          assets: filename=extension-automount.json
+          assets: filename=core-server-automount.json
           filename: metadata.json
       - name: Generate components.xml
         run: |
           git clone https://gitlab.unstable.life/flashpoint/docker/nexus-deploy-action.git nexus
           cd nexus
-          python3 ./merge-metadata.py "https://nexus-dev.unstable.life/service/rest/v1/search?repository=development&name=*.json" components.xml
+          python3 ./merge-metadata.py "https://nexus-dev.unstable.life/service/rest/v1/search?repository=development&name=*.json" components.xml "https://nexus-dev.unstable.life/repository/development/"
+      - name: Deploy components.xml to Nexus
+        uses: sonatype-nexus-community/nexus-repo-github-action@master
+        with:
+          serverUrl: https://nexus-dev.unstable.life
+          username: github
+          password: ${{ secrets.NEXUS_PASSWORD }}
+          format: raw
+          repository: components
+          coordinates: directory=/
+          assets: filename=components.xml
+          filename: ./nexus/components.xml
       - name: Deploy components.xml to Nexus
         uses: sonatype-nexus-community/nexus-repo-github-action@master
         with:
