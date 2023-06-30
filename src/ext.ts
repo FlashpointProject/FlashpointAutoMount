@@ -149,37 +149,21 @@ export async function activate(context: flashpoint.ExtensionContext) {
         completed = true;
       }).catch((err) => {throw err;});
 
-      // We also have a secondary task: the timer task.
-      let timerPromise = new Promise((resolve, reject) => {
-        // Arguments: the amount of time to wait before recursing, how deep into the recursion we are, how
-        // deep we're allowed to go before we should begin to nudge, and the callback to call when we're done.
-        (async function timer(waitTime, depth, maxDepth, callback) {
-          // Is the main task still incomplete?
-          if (!completed) {
-            // Yes. Should we send a nudge?
-            if (!QMPDone && depth > maxDepth) {
-              // Yes, send one. Wait for that to complete.
-              await nudgeQMP();
-            }
-            // Recurse (kinda) after waiting waitTime. Pass through all the arguments
-            // untouched except depth, which is incremented by one.
-            setTimeout(timer, waitTime, waitTime, depth + 1, maxDepth, callback);
-          } else {
-            // Oh look, the main task finished! Call the callback.
-            // Note: it required that I supply it with a return value, so here's
-            // a nonsense value to return.
-            callback(1)
-          }
-        // We call this lovely function with the arguments:
-        //   waitTime = 50ms      I wanted it to be lower.
-        //   depth = 0            We're starting off with zero recursions.
-        //   maxDepth = 10        If it takes longer than 0.5 seconds, begin nudging.
-        //   callback = resolve   When the main task is over, then we resolve the promise.
-        })(50, 0, 10, resolve);
-      });
-      // Evaluate the two promises simultaneously.
-      // timerPromise waits on mainTask's completion before resolving, so mainTask will always be first.
-      await Promise.race([mainTask, timerPromise]);
+      const nudgeInterval = setInterval(() => {
+        nudgeQMP()
+        .catch(() => {
+          flashpoint.dialogs.showMessageBox({
+            largeMessage: true,
+            message: 'QEMU does not appear to be working / running.\nGame may not work until fixed.',
+            buttons: ['OK']
+          });
+          clearInterval(nudgeInterval);
+        });
+      }, 500);
+
+      await mainTask.finally(() => {
+        clearInterval(nudgeInterval);
+      })
     }
   }
 
