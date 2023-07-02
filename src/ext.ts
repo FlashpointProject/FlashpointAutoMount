@@ -152,11 +152,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
       const nudgeInterval = setInterval(() => {
         nudgeQMP()
         .catch(() => {
-          flashpoint.dialogs.showMessageBox({
-            largeMessage: true,
-            message: 'QEMU does not appear to be working / running.\nGame may not work until fixed.',
-            buttons: ['OK']
-          });
+          flashpoint.log.warn("Qemu nudge rejected, stopping nudge loop...");
           clearInterval(nudgeInterval);
         });
       }, 500);
