@@ -6,15 +6,30 @@ export async function activate(context: flashpoint.ExtensionContext) {
   const fpPath: string = flashpoint.config.flashpointPath;
   const dataPacksPath: string = path.join(fpPath, flashpoint.getPreferences().dataPacksFolderPath);
 
+  async function unmountGame(filePath: string) {
+    return axios.post("http://localhost:22501/fpProxy/api/unmountzip", {
+      filePath
+    })
+    .catch((err: any) => {
+      flashpoint.log.error(`Failed to mount zip: ${filePath} - ${err}`);
+    });
+  }
+
   // Mount a game, if applicable.
   async function mountGame(filePath: string) {
     return axios.post("http://localhost:22501/fpProxy/api/mountzip", {
       filePath
     })
-    .catch((err) => {
+    .catch((err: any) => {
       flashpoint.log.error(`Failed to mount zip: ${filePath} - ${err}`);
     });
   }
+
+  flashpoint.games.onWillUninstallGameData(async (gameData) => {
+    const filePath: string = path.resolve(path.join(dataPacksPath, gameData.path));
+    flashpoint.log.debug(`Unmounting Game Data: \"${gameData.path}\"`);
+    return unmountGame(filePath);
+  });
 
   flashpoint.games.onWillLaunchGame(async (gameLaunchInfo) => {
     if (gameLaunchInfo.activeData) {
