@@ -81,5 +81,6 @@ export async function activate(context: flashpoint.ExtensionContext) {
 };
 
 export function getGameDataFilename(data: flashpoint.GameData) {
-  return `${data.gameId}-${(new Date(data.dateAdded)).getTime()}.zip`;
+  const cleanDate = (data.dateAdded as unknown as string).includes('T') ? data.dateAdded : `${data.dateAdded} +0000 UTC`;
+  return `${data.gameId}-${(new Date(cleanDate)).getTime()}.zip`;
 }
