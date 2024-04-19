@@ -26,8 +26,9 @@ export async function activate(context: flashpoint.ExtensionContext) {
   }
 
   flashpoint.games.onWillUninstallGameData(async (gameData) => {
-    const filePath: string = path.resolve(path.join(dataPacksPath, gameData.path));
-    flashpoint.log.debug(`Unmounting Game Data: \"${gameData.path}\"`);
+    const filename = getGameDataFilename(gameData);
+    const filePath: string = path.resolve(path.join(dataPacksPath, filename));
+    flashpoint.log.debug(`Unmounting Game Data: \"${filename}\"`);
     return unmountGame(filePath);
   });
 
@@ -35,8 +36,9 @@ export async function activate(context: flashpoint.ExtensionContext) {
     if (gameLaunchInfo.activeData) {
       if (gameLaunchInfo.activeData.presentOnDisk) {
         // Data present, mount it now
+        const filename = getGameDataFilename(gameLaunchInfo.activeData);
         flashpoint.log.debug("GameData present on disk, mounting...");
-        const filePath: string = path.resolve(path.join(dataPacksPath, gameLaunchInfo.activeData.path));
+        const filePath: string = path.resolve(path.join(dataPacksPath, filename));
         flashpoint.log.debug(`Mount parameters: \"${gameLaunchInfo.activeData.parameters}\"`);
         if (gameLaunchInfo.activeData.parameters?.startsWith("-extract")) {
           flashpoint.log.debug("AutoMount skipping, '-extract' registered.");
@@ -57,8 +59,9 @@ export async function activate(context: flashpoint.ExtensionContext) {
         const activeData = await flashpoint.gameData.findOne(addAppInfo.parentGame.activeDataId)
         if (activeData && activeData.presentOnDisk) {
           // Data present, mount it now
+          const filename = getGameDataFilename(activeData);
           flashpoint.log.debug("GameData present on disk, mounting...");
-          const filePath: string = path.resolve(path.join(dataPacksPath, activeData.path));
+          const filePath: string = path.resolve(path.join(dataPacksPath, filename));
           flashpoint.log.debug(`Mount parameters: \"${activeData.parameters}\"`);
           if (activeData.parameters?.startsWith("-extract")) {
             flashpoint.log.debug("AutoMount skipping, '-extract' registered.");
@@ -76,3 +79,7 @@ export async function activate(context: flashpoint.ExtensionContext) {
     }
   });
 };
+
+export function getGameDataFilename(data: flashpoint.GameData) {
+  return `${data.gameId}-${(new Date(data.dateAdded)).getTime()}.zip`;
+}
