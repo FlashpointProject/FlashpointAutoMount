@@ -22,7 +22,31 @@ export async function activate(context: flashpoint.ExtensionContext) {
     })
     .catch((err: any) => {
       flashpoint.log.error(`Failed to mount zip: ${filePath} - ${err}`);
+      return mountArchiveDataGame(filePath);
     });
+  }
+
+  async function mountArchiveDataGame(filePath: string) {
+    // Check experimental archive data api is present
+    const archiveDataNamespace = (flashpoint as any).archiveData;
+    if (archiveDataNamespace !== undefined) {
+      const getZipDataOffset = archiveDataNamespace.getZipDataOffset;
+      if (getZipDataOffset !== undefined) {
+        const archivePath = fixSlashes(path.join('Flashpoint Ultimate', path.relative(fpPath, filePath)));
+        flashpoint.log.info(`Trying to mount archive data: ${archivePath}`);
+        const zipInfo: any = await getZipDataOffset(archivePath);
+        if (zipInfo !== null) {
+          // Zip exists, try sending the archive data instead
+          return axios.post("http://localhost:22501/fpProxy/api/mountzip", {
+            archiveData: zipInfo
+          })
+          .catch((err: any) => {
+            flashpoint.log.error(`Failed to mount zip: ${filePath} - ${err}`);
+            return mountArchiveDataGame(filePath);
+          });
+        }
+      }
+    }
   }
 
   flashpoint.games.onWillUninstallGameData(async (gameData) => {
@@ -83,4 +107,8 @@ export async function activate(context: flashpoint.ExtensionContext) {
 export function getGameDataFilename(data: flashpoint.GameData) {
   const cleanDate = (data.dateAdded as unknown as string).includes('T') ? data.dateAdded : `${data.dateAdded} +0000 UTC`;
   return `${data.gameId}-${(new Date(cleanDate)).getTime()}.zip`;
+}
+
+function fixSlashes(str: string): string {
+  return str.replace(/\\/g, '/');
 }
